@@ -10,10 +10,8 @@ from datetime import datetime, timezone
 from dotenv import load_dotenv
 import urllib.parse
 import base64
-from io import BytesIO
-from PIL import Image
-import mimetypes
 from urllib.parse import unquote
+
 # Load environment variables
 load_dotenv()
 
@@ -181,6 +179,26 @@ def get_user_credentials(canva_user_id):
         print(f"Error retrieving credentials: {e}")
         return None
 
+def update_user_credentials(canva_user_id, updated_data):
+    """Update user credentials in S3"""
+    if not s3_client:
+        print("S3 client not available")
+        return False
+        
+    try:
+        filename = f"{canva_user_id}.json"
+        s3_client.put_object(
+            Bucket=Config.S3_BUCKET_NAME,
+            Key=filename,
+            Body=json.dumps(updated_data),
+            ContentType='application/json'
+        )
+        print(f"Updated credentials for user {canva_user_id}")
+        return True
+    except Exception as e:
+        print(f"Error updating credentials: {e}")
+        return False
+
 def is_token_valid(user_data):
     """Check if stored token is still valid (28-day expiry)"""
     try:
@@ -222,34 +240,8 @@ def is_valid_image_url(url):
     except Exception:
         return False
 
-def optimize_image(image_data, max_size=(800, 800), quality=85):
-    """Optimize image size and quality"""
-    try:
-        image = Image.open(BytesIO(image_data))
-        
-        # Convert to RGB if necessary
-        if image.mode in ('RGBA', 'LA', 'P'):
-            background = Image.new('RGB', image.size, (255, 255, 255))
-            if image.mode == 'P':
-                image = image.convert('RGBA')
-            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-            image = background
-        elif image.mode not in ('RGB', 'L'):
-            image = image.convert('RGB')
-        
-        # Resize if needed
-        image.thumbnail(max_size, Image.Resampling.LANCZOS)
-        
-        # Save optimized image
-        output = BytesIO()
-        image.save(output, format='JPEG', quality=quality, optimize=True)
-        return output.getvalue()
-    except Exception as e:
-        print(f"Image optimization failed: {e}")
-        return image_data  # Return original if optimization fails
-
 # =============================================================================
-# CORS PROXY ENDPOINTS FOR IMAGES
+# CORS PROXY ENDPOINTS FOR IMAGES (SIMPLIFIED - NO OPTIMIZATION)
 # =============================================================================
 
 @app.route("/proxy/image")
@@ -294,7 +286,7 @@ def proxy_image():
 @app.route('/proxy/image/base64', methods=['POST'])
 def proxy_image_base64():
     """
-    Convert image URL to base64 data URL for embedding
+    Convert image URL to base64 data URL for embedding (simplified version)
     Usage: POST /proxy/image/base64 with JSON body: {"url": "https://example.com/image.jpg"}
     """
     try:
@@ -314,10 +306,6 @@ def proxy_image_base64():
                 'error': 'Invalid or unsafe image URL'
             }), 400
         
-        # Get optimization parameters
-        max_size = data.get('max_size', 400)  # Smaller for base64
-        quality = data.get('quality', 70)     # Lower quality for base64
-        
         # Fetch the image
         headers = {
             'User-Agent': 'ZotokCanvaApp/1.0',
@@ -332,20 +320,9 @@ def proxy_image_base64():
                 'error': f'Failed to fetch image: HTTP {response.status_code}'
             }), 404
         
-        # Optimize image for base64 (smaller size)
+        # Get image data and content type
         image_data = response.content
         content_type = response.headers.get('content-type', 'image/jpeg')
-        
-        if not content_type.startswith('image/svg'):
-            try:
-                image_data = optimize_image(
-                    image_data,
-                    max_size=(max_size, max_size),
-                    quality=quality
-                )
-                content_type = 'image/jpeg'
-            except Exception as e:
-                print(f"Base64 image optimization failed: {e}")
         
         # Convert to base64
         base64_data = base64.b64encode(image_data).decode('utf-8')
@@ -607,6 +584,132 @@ def refresh_token():
         }), 500
 
 # =============================================================================
+# USER SETTINGS ENDPOINT - NEW
+# =============================================================================
+
+@app.route('/api/user/settings', methods=['GET', 'POST'])
+def user_settings():
+    """Handle user settings - get and save phone number"""
+    try:
+        if request.method == 'GET':
+            # Get user settings
+            canva_user_id = request.args.get('canvaUserId')
+            
+            if not canva_user_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Missing canvaUserId parameter'
+                }), 400
+            
+            # Get auth token from header
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({
+                    'success': False,
+                    'error': 'Authorization header missing'
+                }), 401
+            
+            # Retrieve user data from S3
+            user_data = get_user_credentials(canva_user_id)
+            
+            if not user_data:
+                return jsonify({
+                    'success': False,
+                    'error': 'User data not found'
+                }), 404
+            
+            # Check if token is still valid
+            if not is_token_valid(user_data):
+                return jsonify({
+                    'success': False,
+                    'error': 'Token expired'
+                }), 401
+            
+            # Return phone number if it exists
+            phone_number = user_data.get('phoneNumber', '')
+            
+            return jsonify({
+                'success': True,
+                'phoneNumber': phone_number
+            })
+            
+        elif request.method == 'POST':
+            # Save user settings
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'No data provided'
+                }), 400
+            
+            canva_user_id = data.get('canvaUserId')
+            phone_number = data.get('phoneNumber', '').strip()
+            
+            if not canva_user_id:
+                return jsonify({
+                    'success': False,
+                    'error': 'Missing canvaUserId'
+                }), 400
+            
+            if not phone_number:
+                return jsonify({
+                    'success': False,
+                    'error': 'Phone number is required'
+                }), 400
+            
+            # Get auth token from header
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({
+                    'success': False,
+                    'error': 'Authorization header missing'
+                }), 401
+            
+            # Retrieve existing user data from S3
+            user_data = get_user_credentials(canva_user_id)
+            
+            if not user_data:
+                return jsonify({
+                    'success': False,
+                    'error': 'User data not found'
+                }), 404
+            
+            # Check if token is still valid
+            if not is_token_valid(user_data):
+                return jsonify({
+                    'success': False,
+                    'error': 'Token expired'
+                }), 401
+            
+            # Update user data with phone number
+            user_data['phoneNumber'] = phone_number
+            user_data['settings_updated'] = datetime.now(timezone.utc).isoformat()
+            
+            # Save updated data back to S3
+            if update_user_credentials(canva_user_id, user_data):
+                print(f"Updated settings for user {canva_user_id}: phone_number={phone_number}")
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Settings saved successfully',
+                    'phoneNumber': phone_number
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to save settings to storage'
+                }), 500
+                
+    except Exception as e:
+        print(f"Error in user_settings endpoint: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'details': str(e)
+        }), 500
+
+# =============================================================================
 # ZOTOK API PROXY ENDPOINTS
 # =============================================================================
 
@@ -862,6 +965,7 @@ def health_check():
         'timestamp': datetime.now(timezone.utc).isoformat(),
         'cors_test': 'enabled',
         'proxy_enabled': True,
+        'settings_endpoint': True,
         'token_expiry_days': TOKEN_EXPIRY_SECONDS / (24 * 60 * 60)
     })
 
@@ -901,6 +1005,9 @@ if __name__ == '__main__':
     print("    POST /auth/login")
     print("    GET  /auth/token")
     print("    POST /auth/refresh")
+    print("  User Settings:")
+    print("    GET  /api/user/settings")
+    print("    POST /api/user/settings")
     print("  Zotok API Proxy:")
     print("    GET  /api/products")
     print("    GET  /api/products/<id>")
