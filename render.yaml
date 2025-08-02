@@ -1,0 +1,4 @@
+build:
+  env: 
+    - name: PIP_USE_PEP517
+      value: false
