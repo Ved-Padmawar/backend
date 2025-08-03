@@ -589,10 +589,10 @@ def refresh_token():
 
 @app.route('/api/user/settings', methods=['GET', 'POST'])
 def user_settings():
-    """Handle user settings - get and save phone number"""
+    """Handle user phone number settings"""
     try:
         if request.method == 'GET':
-            # Get user settings
+            # Get user phone number
             canva_user_id = request.args.get('canvaUserId')
             
             if not canva_user_id:
@@ -609,7 +609,7 @@ def user_settings():
                     'error': 'Authorization header missing'
                 }), 401
             
-            # Retrieve user data from S3
+            # Retrieve user data from S3 using existing function
             user_data = get_user_credentials(canva_user_id)
             
             if not user_data:
@@ -618,7 +618,7 @@ def user_settings():
                     'error': 'User data not found'
                 }), 404
             
-            # Check if token is still valid
+            # Check if token is still valid using existing function
             if not is_token_valid(user_data):
                 return jsonify({
                     'success': False,
@@ -634,7 +634,7 @@ def user_settings():
             })
             
         elif request.method == 'POST':
-            # Save user settings
+            # Save user phone number
             data = request.get_json()
             
             if not data:
@@ -666,7 +666,7 @@ def user_settings():
                     'error': 'Authorization header missing'
                 }), 401
             
-            # Retrieve existing user data from S3
+            # Retrieve existing user data from S3 using existing function
             user_data = get_user_credentials(canva_user_id)
             
             if not user_data:
@@ -675,20 +675,20 @@ def user_settings():
                     'error': 'User data not found'
                 }), 404
             
-            # Check if token is still valid
+            # Check if token is still valid using existing function
             if not is_token_valid(user_data):
                 return jsonify({
                     'success': False,
                     'error': 'Token expired'
                 }), 401
             
-            # Update user data with phone number
+            # Update user data with phone number (this will overwrite any existing phone number)
             user_data['phoneNumber'] = phone_number
             user_data['settings_updated'] = datetime.now(timezone.utc).isoformat()
             
-            # Save updated data back to S3
+            # Save updated data back to S3 using existing function
             if update_user_credentials(canva_user_id, user_data):
-                print(f"Updated settings for user {canva_user_id}: phone_number={phone_number}")
+                print(f"Updated phone number for user {canva_user_id}: {phone_number}")
                 
                 return jsonify({
                     'success': True,
