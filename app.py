@@ -776,32 +776,9 @@ def proxy_products():
             else:
                 products_array = []
             
-            # Process image URLs to use proxy if needed
-            for product in products_array:
-                if 'productImages' in product and product['productImages']:
-                    # Convert image URLs to use our proxy
-                    if isinstance(product['productImages'], str):
-                        image_urls = product['productImages'].split(',')
-                        proxied_urls = []
-                        for url in image_urls:
-                            url = url.strip()
-                            if url and not url.startswith('data:'):
-                                # Use our proxy for external images
-                                proxy_url = f"{request.host_url}proxy/image?url={urllib.parse.quote(url)}"
-                                proxied_urls.append(proxy_url)
-                            else:
-                                proxied_urls.append(url)
-                        product['productImages'] = ','.join(proxied_urls)
-                    elif isinstance(product['productImages'], list):
-                        proxied_urls = []
-                        for url in product['productImages']:
-                            if url and not url.startswith('data:'):
-                                proxy_url = f"{request.host_url}proxy/image?url={urllib.parse.quote(url)}"
-                                proxied_urls.append(proxy_url)
-                            else:
-                                proxied_urls.append(url)
-                        product['productImages'] = proxied_urls
-                
+            # NO IMAGE PROCESSING - Just pass through original URLs
+            # Images are already publicly accessible from Zotok
+            
             print(f"Processed products array length: {len(products_array)}")
             
             return jsonify({
@@ -836,6 +813,7 @@ def proxy_products():
             'details': str(e)
         }), 500
 
+
 @app.route('/api/products/<product_id>', methods=['GET'])
 def proxy_product_detail(product_id):
     """Proxy single product request to Zotok API"""
@@ -865,28 +843,8 @@ def proxy_product_detail(product_id):
         if response.status_code == 200:
             product_data = response.json()
             
-            # Process image URLs to use proxy
-            if 'productImages' in product_data and product_data['productImages']:
-                if isinstance(product_data['productImages'], str):
-                    image_urls = product_data['productImages'].split(',')
-                    proxied_urls = []
-                    for url in image_urls:
-                        url = url.strip()
-                        if url and not url.startswith('data:'):
-                            proxy_url = f"{request.host_url}proxy/image?url={urllib.parse.quote(url)}"
-                            proxied_urls.append(proxy_url)
-                        else:
-                            proxied_urls.append(url)
-                    product_data['productImages'] = ','.join(proxied_urls)
-                elif isinstance(product_data['productImages'], list):
-                    proxied_urls = []
-                    for url in product_data['productImages']:
-                        if url and not url.startswith('data:'):
-                            proxy_url = f"{request.host_url}proxy/image?url={urllib.parse.quote(url)}"
-                            proxied_urls.append(proxy_url)
-                        else:
-                            proxied_urls.append(url)
-                    product_data['productImages'] = proxied_urls
+            # NO IMAGE PROCESSING - Just pass through original URLs
+            # Images are already publicly accessible from Zotok
             
             return jsonify({
                 'success': True,
@@ -911,7 +869,6 @@ def proxy_product_detail(product_id):
             'error': 'Internal server error',
             'details': str(e)
         }), 500
-
 @app.route('/api/test-zotok', methods=['GET'])
 def test_zotok_connection():
     """Test endpoint to verify Zotok API connectivity"""
