@@ -105,9 +105,9 @@ def handle_preflight():
 
 # Configuration
 class Config:
-    AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
-    AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+    AWS_ACCESS_KEY_ID = os.getenv('ZOTOK_AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.getenv('ZOTOK_AWS_SECRET_ACCESS_KEY')
+    AWS_REGION = os.getenv('ZOTOK_AWS_REGION', 'us-east-1')
     S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'zotok-developer-apps')
     ZOTOK_API_BASE_URL = os.getenv('ZOTOK_API_BASE_URL', 'https://api-qa.zono.digital')
     FLASK_PORT = int(os.getenv('FLASK_PORT', 5000) or 5000)
