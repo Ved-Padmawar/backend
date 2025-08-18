@@ -13,5 +13,6 @@ frontend:
       commands:
         - echo "Backend only deployment"
   artifacts:
+    baseDirectory: '.'
     files:
       - '**/*'
