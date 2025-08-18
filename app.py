@@ -108,9 +108,9 @@ class Config:
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
-    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'nexusai-storage')  # Updated to match your .env
+    S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME', 'zotok-developer-apps')
     ZOTOK_API_BASE_URL = os.getenv('ZOTOK_API_BASE_URL', 'https://api-qa.zono.digital')
-    FLASK_PORT = int(os.getenv('FLASK_PORT', 5000))
+    FLASK_PORT = int(os.getenv('FLASK_PORT', 5000) or 5000)
     FLASK_HOST = os.getenv('FLASK_HOST', '0.0.0.0')
 
 # Initialize S3 client
@@ -152,7 +152,7 @@ def store_user_credentials(canva_user_id, workspace_id, client_id, client_secret
             "token_expires_in": expires_in  # Now defaults to 28 days
         }
         
-        filename = f"{canva_user_id}.json"
+        filename = f"canva-catalog-app/{canva_user_id}.json"
         s3_client.put_object(
             Bucket=Config.S3_BUCKET_NAME,
             Key=filename,
@@ -171,7 +171,7 @@ def get_user_credentials(canva_user_id):
         return None
         
     try:
-        filename = f"{canva_user_id}.json"
+        filename = f"canva-catalog-app/{canva_user_id}.json"
         response = s3_client.get_object(Bucket=Config.S3_BUCKET_NAME, Key=filename)
         user_data = json.loads(response['Body'].read())
         return user_data
@@ -186,7 +186,7 @@ def update_user_credentials(canva_user_id, updated_data):
         return False
         
     try:
-        filename = f"{canva_user_id}.json"
+        filename = f"canva-catalog-app/{canva_user_id}.json"
         s3_client.put_object(
             Bucket=Config.S3_BUCKET_NAME,
             Key=filename,
@@ -953,7 +953,7 @@ def internal_error(error):
 
 if __name__ == '__main__':
     print(f"Starting Zotok Auth Service on {Config.FLASK_HOST}:{Config.FLASK_PORT}")
-    print(f"S3 Bucket: {Config.S3_BUCKET_NAME}")
+    print(f"S3 Bucket: {Config.S3_BUCKET_NAME} (storing in canva-catalog-app/ folder)")
     print(f"Zotok API: {Config.ZOTOK_API_BASE_URL}")
     print(f"Token Expiry: {TOKEN_EXPIRY_SECONDS} seconds ({TOKEN_EXPIRY_SECONDS / (24 * 60 * 60)} days)")
     print(f"CORS enabled for Canva apps")
