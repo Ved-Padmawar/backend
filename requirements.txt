@@ -3,7 +3,7 @@ Flask-Cors
 boto3
 botocore
 s3transfer
-request
+requests
 python-dotenv
 gunicorn
-Pillo
+Pillow
